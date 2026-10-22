@@ -33,7 +33,7 @@ npm run start
 
 ## Catálogo
 
-Edite `publishedProducts` em `src/lib/products.ts` para cadastrar somente produtos conferidos e autorizados. Cada item contém id, slug, nome, descrição factual, modalidade, subcategoria, preço em BRL ou `null`, imagem e texto alternativo, vendedor, URL afiliada ou `null`, status, destaque e data de verificação do preço.
+Edite `publishedProducts` em `src/lib/products.ts` para cadastrar produtos conferidos e autorizados. Cada item contém id, slug, nome, marca/modelo e atributos quando conhecidos, descrição factual, modalidade, subcategoria, preço em BRL ou `null`, imagem e texto alternativo, vendedor, URL do produto Amazon, URL afiliada ou `null`, status, destaque e data de verificação do preço.
 
 O catálogo público começa vazio. Em produção, só aparecem itens ativos com um link HTTPS válido em um host configurado. Produto sem preço pode ser exibido como “Preço não informado”, mas não participa da ordenação por preço. Produtos sem link válido não exibem botão de oferta.
 
@@ -45,7 +45,11 @@ Imagens locais em `public/` são preferíveis. Para imagem remota autorizada, ca
 
 Cadastre os hosts exatos aprovados em `allowedAffiliateHosts` em `src/lib/affiliate.ts`. O validador exige HTTPS, rejeita credenciais e não aceita subdomínios não listados. Ele preserva a URL original, inclusive parâmetros de rastreamento. Não cadastre um domínio até que a conta/programa confirme a aprovação e a URL seja gerada pelo próprio programa.
 
-Os links abrem em outra aba com `rel="sponsored noopener noreferrer"`. A loja informa que pode receber comissão por compras elegíveis; um clique não é confirmação de venda ou comissão. O botão de oferta só é renderizado para link válido.
+Para os produtos Amazon, defina `AMAZON_ASSOCIATE_TAG` com o identificador fornecido pela conta aprovada no programa de associados. O servidor cria URLs `/dp/{ASIN}?tag=...` somente para ASINs cadastrados e tags no formato esperado; sem a variável, os cards permanecem visíveis e o link de compra não é exibido. Não use uma tag de exemplo. Os links abrem em outra aba com `rel="sponsored noopener noreferrer"`. A loja informa que pode receber comissão por compras elegíveis; um clique não é confirmação de venda ou comissão.
+
+### Categoria de vôlei
+
+`/volei` contém 30 produtos identificados na página de mais vendidos consultada em 22/10/2026. Foram cadastrados nomes normalizados, marcas/modelos quando explícitos e destinos individuais observados; preços, imagens, avaliações e disponibilidade não foram importados. A página de referência indicava duas páginas, mas a extração retornou posições 1–30 e 51–80; posições 31–50 permanecem sem identificação. A seleção não é uma lista completa nem um ranking atual. Antes de ampliar o catálogo, valide os dados e destinos por uma fonte autorizada (preferencialmente PA-API ou cadastro administrativo) e confirme as regras do programa.
 
 ## Analytics e privacidade
 
@@ -59,6 +63,7 @@ Copie `.env.example` para `.env.local` no desenvolvimento ou cadastre as variáv
 
 - `NEXT_PUBLIC_SITE_URL`: domínio público HTTPS definitivo. Enquanto vazio, não são declarados canonical nem sitemap com domínio inventado.
 - `NEXT_PUBLIC_STORE_CONTACT_EMAIL`: e-mail de contato comercial real, se houver.
+- `AMAZON_ASSOCIATE_TAG`: identificador de associado Amazon aprovado; sem ele, não há links de compra ativos.
 
 Esses valores são públicos por definição do prefixo `NEXT_PUBLIC_`; nunca coloque tokens ou credenciais neles. Não há segredos necessários para o MVP.
 

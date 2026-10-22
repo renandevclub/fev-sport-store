@@ -81,6 +81,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .hero-edge { position: absolute; right: 0; bottom: 0; left: 0; height: 6px; background: var(--lime); }
 
 .catalog-section { width: min(1240px, calc(100% - 64px)); margin: 0 auto; padding: 82px 0 71px; }
+.breadcrumbs { display: flex; align-items: center; gap: 9px; margin: 0 0 25px; color: #69706a; font-size: 11px; }
+.breadcrumbs a { text-decoration: none; }
+.breadcrumbs a:hover { color: #536d00; }
+.source-note { margin: 18px 0 0; border-left: 3px solid #9ab723; padding: 8px 12px; color: #5e665f; font-size: 11px; line-height: 1.6; }
 .section-heading { display: flex; justify-content: space-between; align-items: end; gap: 30px; }
 .eyebrow-dark { color: #5d645e; }
 .eyebrow-dark > span { background: #89ae08; }

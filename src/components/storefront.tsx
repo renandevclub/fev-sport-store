@@ -25,6 +25,7 @@ export function Storefront({ products, demoMode, contactEmail, initialSport = "t
   const [query, setQuery] = useState("");
   const [sport, setSport] = useState<SportFilter>(initialSport);
   const [subcategory, setSubcategory] = useState("");
+  const [brand, setBrand] = useState("");
   const [priceOrder, setPriceOrder] = useState<PriceOrder>("relevance");
   const [menuOpen, setMenuOpen] = useState(false);
   const [imageErrors, setImageErrors] = useState<string[]>([]);
@@ -36,9 +37,16 @@ export function Storefront({ products, demoMode, contactEmail, initialSport = "t
     return [...new Set(available)].sort((left, right) => left.localeCompare(right, "pt-BR"));
   }, [products, sport]);
 
+  const brands = useMemo(() => {
+    const available = products
+      .filter((product) => (sport === "todos" || product.category === sport) && product.brand)
+      .map((product) => product.brand as string);
+    return [...new Set(available)].sort((left, right) => left.localeCompare(right, "pt-BR"));
+  }, [products, sport]);
+
   const visibleProducts = useMemo(
-    () => filterProducts(products, { query, sport, subcategory, priceOrder }),
-    [products, query, sport, subcategory, priceOrder],
+    () => filterProducts(products, { query, sport, subcategory, brand, priceOrder }),
+    [products, query, sport, subcategory, brand, priceOrder],
   );
 
   const featuredProducts = visibleProducts.filter((product) => product.featured);
@@ -53,6 +61,7 @@ export function Storefront({ products, demoMode, contactEmail, initialSport = "t
   function chooseSport(nextSport: SportFilter) {
     setSport(nextSport);
     setSubcategory("");
+    setBrand("");
     setMenuOpen(false);
     trackEvent("category_select", { category: nextSport });
   }
@@ -68,6 +77,7 @@ export function Storefront({ products, demoMode, contactEmail, initialSport = "t
     setQuery("");
     setSport("todos");
     setSubcategory("");
+    setBrand("");
     setPriceOrder("relevance");
   }
 
@@ -121,7 +131,7 @@ export function Storefront({ products, demoMode, contactEmail, initialSport = "t
           <div className="hero-inner">
             <div className="hero-copy">
               <p className="eyebrow"><span /> EQUIPAMENTO PARA QUEM JOGA</p>
-              <h1 id="hero-title">EQUIPADO<br />PARA O <em>JOGO.</em></h1>
+              <h1 id="hero-title">{initialSport === "volei" ? <>EQUIPAMENTO<br />DE <em>VÔLEI.</em></> : <>EQUIPADO<br />PARA O <em>JOGO.</em></>}</h1>
               <p className="hero-lede">Encontre equipamentos e acessórios para sua próxima partida.</p>
               <div className="hero-actions">
                 <button className="button button-primary" type="button" onClick={() => { chooseSport("futebol"); document.getElementById("produtos")?.scrollIntoView({ behavior: "smooth" }); }}>
@@ -148,12 +158,17 @@ export function Storefront({ products, demoMode, contactEmail, initialSport = "t
         </section>
 
         <section className="catalog-section" id="produtos" aria-labelledby="catalog-title">
+          {initialSport === "volei" && (
+            <nav className="breadcrumbs" aria-label="Breadcrumb">
+              <Link href="/">Início</Link><span aria-hidden="true">/</span><span>Esportes</span><span aria-hidden="true">/</span><span aria-current="page">Vôlei</span>
+            </nav>
+          )}
           <div className="section-heading">
             <div>
               <p className="eyebrow eyebrow-dark"><span /> SEU PRÓXIMO JOGO COMEÇA AQUI</p>
-              <h2 id="catalog-title">Equipamento <em>de jogo.</em></h2>
+              <h2 id="catalog-title">{initialSport === "volei" ? <>Equipamentos de <em>vôlei.</em></> : <>Equipamento <em>de jogo.</em></>}</h2>
             </div>
-            <p className="catalog-intro">Seleção de itens para acompanhar<br className="desktop-break" /> você dentro e fora da quadra.</p>
+            <p className="catalog-intro">{initialSport === "volei" ? "Bolas, proteção e acessórios para treinos e partidas." : <>Seleção de itens para acompanhar<br className="desktop-break" /> você dentro e fora da quadra.</>}</p>
           </div>
 
           <div className="category-strip" aria-label="Filtrar por modalidade">
@@ -181,21 +196,32 @@ export function Storefront({ products, demoMode, contactEmail, initialSport = "t
                   {categories.map((category) => <option key={category} value={category}>{category}</option>)}
                 </select>
               </label>
-              {hasPrices && (
+              {brands.length > 0 && (
                 <label>
-                  <span className="sr-only">Ordenar produtos por preço</span>
-                  <select value={priceOrder} onChange={(event) => setPriceOrder(event.target.value as PriceOrder)}>
-                    <option value="relevance">Ordem de cadastro</option>
-                    <option value="price-asc">Menor preço</option>
-                    <option value="price-desc">Maior preço</option>
+                  <span className="sr-only">Filtrar por marca</span>
+                  <select value={brand} onChange={(event) => setBrand(event.target.value)}>
+                    <option value="">Todas as marcas</option>
+                    {brands.map((item) => <option key={item} value={item}>{item}</option>)}
                   </select>
                 </label>
               )}
-              {(query || sport !== "todos" || subcategory || priceOrder !== "relevance") && (
+              <label>
+                <span className="sr-only">Ordenar produtos</span>
+                <select value={priceOrder} onChange={(event) => setPriceOrder(event.target.value as PriceOrder)}>
+                  <option value="relevance">Ordem consultada (22/10/2026)</option>
+                  {hasPrices && <><option value="price-asc">Menor preço</option><option value="price-desc">Maior preço</option></>}
+                  <option value="name-asc">Ordem alfabética</option>
+                </select>
+              </label>
+              {(query || sport !== "todos" || subcategory || brand || priceOrder !== "relevance") && (
                 <button className="clear-filters" type="button" onClick={clearFilters}>Limpar filtros <span aria-hidden="true">×</span></button>
               )}
             </div>
           </div>
+
+          {initialSport === "volei" && (
+            <p className="source-note">Consulta da referência em 22/10/2026: foram identificados itens nas posições 1–30 e 51–80. Esta seleção inclui os itens relacionados a vôlei; as posições 31–50 não foram retornadas pela consulta. Preços, avaliações e imagens não foram importados, e a ordem não representa um ranking atual.</p>
+          )}
 
           {featuredProducts.length > 0 && !query && sport === "todos" && !subcategory && (
             <div className="featured-line"><span className="featured-star" aria-hidden="true">✳</span> SELEÇÃO DA LOJA <span className="featured-note">Itens marcados como destaque no catálogo</span></div>
@@ -223,7 +249,7 @@ export function Storefront({ products, demoMode, contactEmail, initialSport = "t
                       {product.featured && <span className="product-featured-tag">DESTAQUE</span>}
                     </div>
                     <div className="product-content">
-                      <div className="product-meta"><span>{product.category === "volei" ? "VÔLEI" : "FUTEBOL"}</span><span>{product.subcategory}</span></div>
+                      <div className="product-meta"><span>{product.brand || (product.category === "volei" ? "VÔLEI" : "FUTEBOL")}</span><span>{product.subcategory}</span></div>
                       <h3>{product.name}</h3>
                       <p className="product-description">{product.description}</p>
                       <div className="product-commerce">
@@ -235,11 +261,11 @@ export function Storefront({ products, demoMode, contactEmail, initialSport = "t
                         </div>
                         {affiliateUrl ? (
                           <a className="offer-link" href={affiliateUrl} target="_blank" rel="sponsored noopener noreferrer" onClick={() => trackEvent("affiliate_click", { productId: product.id, category: product.category })}>
-                            Ver oferta <span aria-hidden="true">↗</span>
+                            Ver produto na Amazon <span aria-hidden="true">↗</span>
                           </a>
-                        ) : <span className="offer-unavailable">{demoMode ? "Sem oferta real" : "Link não configurado"}</span>}
+                        ) : <span className="offer-unavailable">{product.amazonUrl ? "Link afiliado pendente de configuração" : demoMode ? "Sem oferta real" : "Link não configurado"}</span>}
                       </div>
-                      {product.merchant && <p className="merchant-name">Vendido por {product.merchant}</p>}
+                      {product.merchant && !product.amazonUrl && <p className="merchant-name">Vendido por {product.merchant}</p>}
                     </div>
                   </article>
                 );
@@ -250,7 +276,7 @@ export function Storefront({ products, demoMode, contactEmail, initialSport = "t
               <span className="empty-mark" aria-hidden="true">F/V</span>
               <h3>{query ? "Nenhum item encontrado." : "Catálogo em preparação."}</h3>
               <p>{query ? "Tente outro termo ou ajuste os filtros para explorar os itens disponíveis." : "Estamos preparando uma seleção verificada. Volte em breve para conferir as novidades."}</p>
-              {(query || sport !== "todos" || subcategory || priceOrder !== "relevance") && <button className="button button-dark" type="button" onClick={clearFilters}>Limpar filtros</button>}
+              {(query || sport !== "todos" || subcategory || brand || priceOrder !== "relevance") && <button className="button button-dark" type="button" onClick={clearFilters}>Limpar filtros</button>}
             </div>
           )}
 
