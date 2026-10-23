@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Storefront } from "@/components/storefront";
-import { contactEmail, demoMode, getCanonicalPath, getStoreProducts } from "@/lib/store-data";
+import { contactEmail, getCanonicalPath, getStoreProducts } from "@/lib/store-data";
 
 export const metadata: Metadata = {
   title: "Equipamento para quem joga",
@@ -9,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default function HomePage() {
-  return <Storefront products={getStoreProducts()} demoMode={demoMode} contactEmail={contactEmail} />;
+  return <Storefront products={getStoreProducts()} contactEmail={contactEmail} />;
 }

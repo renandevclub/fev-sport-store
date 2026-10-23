@@ -5,11 +5,10 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { getProductAffiliateUrl } from "@/lib/affiliate";
 import { trackEvent } from "@/lib/analytics";
-import { filterProducts, getProductImageUrl, isComparablePrice, type PriceOrder, type Product, type SportFilter } from "@/lib/products";
+import { filterProducts, getProductImageUrl, isComparablePrice, isProductInSport, type FootballType, type PriceOrder, type Product, type SportFilter } from "@/lib/products";
 
 type StorefrontProps = {
   products: readonly Product[];
-  demoMode: boolean;
   contactEmail: string | null;
   initialSport?: SportFilter;
 };
@@ -20,33 +19,49 @@ const sports: { value: SportFilter; label: string }[] = [
   { value: "volei", label: "Vôlei" },
 ];
 
-export function Storefront({ products, demoMode, contactEmail, initialSport = "todos" }: StorefrontProps) {
+const footballTypeOptions: { value: FootballType; label: string }[] = [
+  { value: "campo", label: "Campo" },
+  { value: "futsal", label: "Futsal" },
+  { value: "society", label: "Society" },
+];
+
+export function Storefront({ products, contactEmail, initialSport = "todos" }: StorefrontProps) {
   const [queryInput, setQueryInput] = useState("");
   const [query, setQuery] = useState("");
   const [sport, setSport] = useState<SportFilter>(initialSport);
   const [subcategory, setSubcategory] = useState("");
   const [brand, setBrand] = useState("");
+  const [footballType, setFootballType] = useState<FootballType | "">("");
   const [priceOrder, setPriceOrder] = useState<PriceOrder>("relevance");
   const [menuOpen, setMenuOpen] = useState(false);
   const [imageErrors, setImageErrors] = useState<string[]>([]);
 
   const categories = useMemo(() => {
     const available = products
-      .filter((product) => sport === "todos" || product.category === sport)
+      .filter((product) => isProductInSport(product, sport))
       .map((product) => product.subcategory);
     return [...new Set(available)].sort((left, right) => left.localeCompare(right, "pt-BR"));
   }, [products, sport]);
 
   const brands = useMemo(() => {
     const available = products
-      .filter((product) => (sport === "todos" || product.category === sport) && product.brand)
+      .filter((product) => isProductInSport(product, sport) && product.brand)
       .map((product) => product.brand as string);
     return [...new Set(available)].sort((left, right) => left.localeCompare(right, "pt-BR"));
   }, [products, sport]);
 
+  const availableFootballTypes = useMemo(() => {
+    const available = new Set(
+      products
+        .filter((product) => isProductInSport(product, sport))
+        .flatMap((product) => product.footballTypes ?? []),
+    );
+    return footballTypeOptions.filter((option) => available.has(option.value));
+  }, [products, sport]);
+
   const visibleProducts = useMemo(
-    () => filterProducts(products, { query, sport, subcategory, brand, priceOrder }),
-    [products, query, sport, subcategory, brand, priceOrder],
+    () => filterProducts(products, { query, sport, subcategory, brand, footballType, priceOrder }),
+    [products, query, sport, subcategory, brand, footballType, priceOrder],
   );
 
   const featuredProducts = visibleProducts.filter((product) => product.featured);
@@ -62,6 +77,7 @@ export function Storefront({ products, demoMode, contactEmail, initialSport = "t
     setSport(nextSport);
     setSubcategory("");
     setBrand("");
+    setFootballType("");
     setMenuOpen(false);
     trackEvent("category_select", { category: nextSport });
   }
@@ -78,6 +94,7 @@ export function Storefront({ products, demoMode, contactEmail, initialSport = "t
     setSport("todos");
     setSubcategory("");
     setBrand("");
+    setFootballType("");
     setPriceOrder("relevance");
   }
 
@@ -121,18 +138,12 @@ export function Storefront({ products, demoMode, contactEmail, initialSport = "t
       </header>
 
       <main id="inicio">
-        {demoMode && (
-          <div className="demo-banner" role="status">
-            <span className="demo-dot" /> Modo demonstração. Produtos e imagens são ilustrativos, não são ofertas reais.
-          </div>
-        )}
-
         <section className="hero" aria-labelledby="hero-title">
           <div className="hero-inner">
             <div className="hero-copy">
               <p className="eyebrow"><span /> EQUIPAMENTO PARA QUEM JOGA</p>
-              <h1 id="hero-title">{initialSport === "volei" ? <>EQUIPAMENTO<br />DE <em>VÔLEI.</em></> : <>EQUIPADO<br />PARA O <em>JOGO.</em></>}</h1>
-              <p className="hero-lede">Encontre equipamentos e acessórios para sua próxima partida.</p>
+              <h1 id="hero-title">{initialSport === "volei" ? <>EQUIPAMENTO<br />DE <em>VÔLEI.</em></> : initialSport === "futebol" ? <>ITENS PARA<br />JOGAR<br /><em>FUTEBOL.</em></> : <>EQUIPADO<br />PARA O <em>JOGO.</em></>}</h1>
+              <p className="hero-lede">{initialSport === "futebol" ? "Bolas, chuteiras e acessórios para campo, futsal e treino." : "Encontre equipamentos e acessórios para sua próxima partida."}</p>
               <div className="hero-actions">
                 <button className="button button-primary" type="button" onClick={() => { chooseSport("futebol"); document.getElementById("produtos")?.scrollIntoView({ behavior: "smooth" }); }}>
                   Explorar futebol <span aria-hidden="true">↗</span>
@@ -158,17 +169,17 @@ export function Storefront({ products, demoMode, contactEmail, initialSport = "t
         </section>
 
         <section className="catalog-section" id="produtos" aria-labelledby="catalog-title">
-          {initialSport === "volei" && (
+          {initialSport !== "todos" && (
             <nav className="breadcrumbs" aria-label="Breadcrumb">
-              <Link href="/">Início</Link><span aria-hidden="true">/</span><span>Esportes</span><span aria-hidden="true">/</span><span aria-current="page">Vôlei</span>
+              <Link href="/">Início</Link><span aria-hidden="true">/</span><span>Esportes</span><span aria-hidden="true">/</span><span aria-current="page">{initialSport === "volei" ? "Vôlei" : "Futebol"}</span>
             </nav>
           )}
           <div className="section-heading">
             <div>
               <p className="eyebrow eyebrow-dark"><span /> SEU PRÓXIMO JOGO COMEÇA AQUI</p>
-              <h2 id="catalog-title">{initialSport === "volei" ? <>Equipamentos de <em>vôlei.</em></> : <>Equipamento <em>de jogo.</em></>}</h2>
+              <h2 id="catalog-title">{initialSport === "volei" ? <>Equipamentos de <em>vôlei.</em></> : initialSport === "futebol" ? <>Itens para jogar <em>futebol.</em></> : <>Equipamento <em>de jogo.</em></>}</h2>
             </div>
-            <p className="catalog-intro">{initialSport === "volei" ? "Bolas, proteção e acessórios para treinos e partidas." : <>Seleção de itens para acompanhar<br className="desktop-break" /> você dentro e fora da quadra.</>}</p>
+            <p className="catalog-intro">{initialSport === "volei" ? "Bolas, proteção e acessórios para treinos e partidas." : initialSport === "futebol" ? "Bolas, chuteiras, luvas de goleiro, itens de treino e camisas de torcida." : <>Seleção de itens para acompanhar<br className="desktop-break" /> você dentro e fora da quadra.</>}</p>
           </div>
 
           <div className="category-strip" aria-label="Filtrar por modalidade">
@@ -205,6 +216,15 @@ export function Storefront({ products, demoMode, contactEmail, initialSport = "t
                   </select>
                 </label>
               )}
+              {availableFootballTypes.length > 0 && (
+                <label>
+                  <span className="sr-only">Filtrar por modalidade de futebol</span>
+                  <select value={footballType} onChange={(event) => setFootballType(event.target.value as FootballType | "")}>
+                    <option value="">Campo, futsal e society</option>
+                    {availableFootballTypes.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                  </select>
+                </label>
+              )}
               <label>
                 <span className="sr-only">Ordenar produtos</span>
                 <select value={priceOrder} onChange={(event) => setPriceOrder(event.target.value as PriceOrder)}>
@@ -213,7 +233,7 @@ export function Storefront({ products, demoMode, contactEmail, initialSport = "t
                   <option value="name-asc">Ordem alfabética</option>
                 </select>
               </label>
-              {(query || sport !== "todos" || subcategory || brand || priceOrder !== "relevance") && (
+              {(query || sport !== "todos" || subcategory || brand || footballType || priceOrder !== "relevance") && (
                 <button className="clear-filters" type="button" onClick={clearFilters}>Limpar filtros <span aria-hidden="true">×</span></button>
               )}
             </div>
@@ -222,6 +242,9 @@ export function Storefront({ products, demoMode, contactEmail, initialSport = "t
           {initialSport === "volei" && (
             <p className="source-note">Consulta da referência em 22/10/2026: foram identificados itens nas posições 1–30 e 51–80. Esta seleção inclui os itens relacionados a vôlei; as posições 31–50 não foram retornadas pela consulta. Preços, avaliações e imagens não foram importados, e a ordem não representa um ranking atual.</p>
           )}
+          {initialSport === "futebol" && (
+            <p className="source-note">Referência consultada em 22/10/2026: “Itens para jogar Futebol”, com posições 1–30 e 51–80 retornadas; as posições 31–50 não apareceram na consulta. O recorte de futebol contém {products.filter((product) => isProductInSport(product, "futebol")).length} itens identificados e pertinentes, sem camisetas esportivas genéricas ou artigos de outras modalidades. Nenhuma imagem oficial foi obtida com autorização; preços, avaliações e disponibilidade não foram importados. A ordem é a observada na consulta, não um ranking atual.</p>
+          )}
 
           {featuredProducts.length > 0 && !query && sport === "todos" && !subcategory && (
             <div className="featured-line"><span className="featured-star" aria-hidden="true">✳</span> SELEÇÃO DA LOJA <span className="featured-note">Itens marcados como destaque no catálogo</span></div>
@@ -229,7 +252,7 @@ export function Storefront({ products, demoMode, contactEmail, initialSport = "t
 
           {visibleProducts.length > 0 ? (
             <div className="product-grid">
-              {visibleProducts.map((product, index) => {
+              {visibleProducts.map((product) => {
                 const affiliateUrl = getProductAffiliateUrl(product);
                 const imageFailed = imageErrors.includes(product.id);
                 const imageUrl = getProductImageUrl(product.imageUrl);
@@ -239,17 +262,14 @@ export function Storefront({ products, demoMode, contactEmail, initialSport = "t
                       {imageUrl && !imageFailed ? (
                         <Image src={imageUrl} alt={product.imageAlt} fill sizes="(max-width: 640px) 90vw, (max-width: 1024px) 45vw, 25vw" onError={() => setImageFailed(product.id)} />
                       ) : (
-                        <div className="image-placeholder" aria-label={product.imageUrl ? "Imagem indisponível" : "Imagem não cadastrada"}>
-                          <span className="placeholder-index">{String(index + 1).padStart(2, "0")}</span>
-                          <SportIllustration sport={product.category} />
-                          <span className="placeholder-label">{product.imageUrl ? "IMAGEM INDISPONÍVEL" : "IMAGEM A CADASTRAR"}</span>
+                        <div className="image-placeholder" role="img" aria-label={product.imageUrl ? "Imagem indisponível" : "Imagem do produto não fornecida"}>
+                          <span className="placeholder-label">{product.imageUrl ? "IMAGEM INDISPONÍVEL" : "IMAGEM NÃO FORNECIDA"}</span>
                         </div>
                       )}
-                      {demoMode && <span className="product-demo-tag">DEMO</span>}
                       {product.featured && <span className="product-featured-tag">DESTAQUE</span>}
                     </div>
                     <div className="product-content">
-                      <div className="product-meta"><span>{product.brand || (product.category === "volei" ? "VÔLEI" : "FUTEBOL")}</span><span>{product.subcategory}</span></div>
+                      <div className="product-meta"><span>{product.brand || (sport !== "todos" ? sport.toLocaleUpperCase("pt-BR") : product.category === "volei" ? "VÔLEI" : "FUTEBOL")}</span><span>{product.subcategory}</span></div>
                       <h3>{product.name}</h3>
                       <p className="product-description">{product.description}</p>
                       <div className="product-commerce">
@@ -263,7 +283,7 @@ export function Storefront({ products, demoMode, contactEmail, initialSport = "t
                           <a className="offer-link" href={affiliateUrl} target="_blank" rel="sponsored noopener noreferrer" onClick={() => trackEvent("affiliate_click", { productId: product.id, category: product.category })}>
                             Ver produto na Amazon <span aria-hidden="true">↗</span>
                           </a>
-                        ) : <span className="offer-unavailable">{product.amazonUrl ? "Link afiliado pendente de configuração" : demoMode ? "Sem oferta real" : "Link não configurado"}</span>}
+                        ) : <span className="offer-unavailable">{product.amazonUrl ? "Link afiliado pendente de configuração" : "Link não configurado"}</span>}
                       </div>
                       {product.merchant && !product.amazonUrl && <p className="merchant-name">Vendido por {product.merchant}</p>}
                     </div>
@@ -274,9 +294,9 @@ export function Storefront({ products, demoMode, contactEmail, initialSport = "t
           ) : (
             <div className="empty-state" role="status">
               <span className="empty-mark" aria-hidden="true">F/V</span>
-              <h3>{query ? "Nenhum item encontrado." : "Catálogo em preparação."}</h3>
-              <p>{query ? "Tente outro termo ou ajuste os filtros para explorar os itens disponíveis." : "Estamos preparando uma seleção verificada. Volte em breve para conferir as novidades."}</p>
-              {(query || sport !== "todos" || subcategory || brand || priceOrder !== "relevance") && <button className="button button-dark" type="button" onClick={clearFilters}>Limpar filtros</button>}
+              <h3>{query ? "Nenhum item encontrado." : "Nenhum produto cadastrado."}</h3>
+              <p>{query ? "Tente outro termo ou ajuste os filtros para explorar os itens disponíveis." : "Não há produtos ativos para estes filtros."}</p>
+              {(query || sport !== "todos" || subcategory || brand || footballType || priceOrder !== "relevance") && <button className="button button-dark" type="button" onClick={clearFilters}>Limpar filtros</button>}
             </div>
           )}
 
@@ -316,16 +336,5 @@ export function Storefront({ products, demoMode, contactEmail, initialSport = "t
         <div className="footer-bottom"><span>© {new Date().getFullYear()} F&V Sports Store</span><span>Links externos podem gerar comissão. <Link href="/privacidade">Saiba mais</Link></span><span>BR / PT</span></div>
       </footer>
     </>
-  );
-}
-
-function SportIllustration({ sport }: { sport: Product["category"] }) {
-  return (
-    <svg className="sport-illustration" viewBox="0 0 120 120" aria-hidden="true">
-      <circle cx="60" cy="60" r="42" />
-      {sport === "futebol"
-        ? <path d="m60 36 15 11-6 18H51l-6-18 15-11Zm0 0V18m15 29 21-7m-27 25 11 18m-29-18-11 18m5-36-21-7m22 25H28m41 0h22m-31 0v25" />
-        : <path d="M22 42c19-8 42-8 76 0M22 78c19 8 42 8 76 0M42 22c-8 19-8 42 0 76m36-76c8 19 8 42 0 76M23 60h74" />}
-    </svg>
   );
 }

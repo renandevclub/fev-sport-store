@@ -44,8 +44,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .header-search button { border: 0; background: none; color: var(--lime); padding: 5px 0 5px 5px; font-size: 11px; font-weight: 700; cursor: pointer; }
 .menu-toggle { display: none; }
 
-.demo-banner { min-height: 36px; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 7px 18px; background: var(--lime); color: var(--ink); text-align: center; font-size: 11px; font-weight: 700; letter-spacing: .2px; }
-.demo-dot { width: 7px; height: 7px; display: inline-block; flex: 0 0 auto; border-radius: 50%; background: var(--ink); }
 .hero { position: relative; overflow: hidden; background: var(--ink); color: var(--white); }
 .hero-inner { width: min(1240px, calc(100% - 64px)); min-height: 520px; margin: 0 auto; padding: 66px 0 58px; display: grid; grid-template-columns: 1fr .94fr; align-items: center; gap: 46px; }
 .hero-copy { position: relative; z-index: 1; padding-bottom: 4px; animation: rise-in .55s ease both; }
@@ -121,17 +119,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .product-image.volei { background: #f0ded7; }
 .product-image > img { object-fit: cover; }
 .image-placeholder { position: absolute; inset: 0; display: grid; place-items: center; overflow: hidden; }
-.image-placeholder::before, .image-placeholder::after { position: absolute; content: ""; }
-.image-placeholder::before { width: 78%; height: 78%; border: 1px solid rgb(23 27 25 / 17%); transform: rotate(-14deg); }
-.image-placeholder::after { width: 70%; height: 1px; background: rgb(23 27 25 / 22%); transform: rotate(-43deg); }
-.product-image.volei .image-placeholder::before { border-color: rgb(145 61 47 / 23%); border-radius: 50%; transform: rotate(26deg) scaleX(.75); }
-.product-image.volei .image-placeholder::after { background: rgb(145 61 47 / 25%); }
-.placeholder-index { position: absolute; top: 14px; left: 15px; z-index: 1; color: rgb(23 27 25 / 55%); font-family: var(--font-display); font-size: 24px; }
-.sport-illustration { position: relative; z-index: 1; width: 33%; max-width: 110px; fill: none; stroke: var(--ink); stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; opacity: .82; }
-.product-image.volei .sport-illustration { stroke: #873e31; }
-.placeholder-label { position: absolute; bottom: 13px; z-index: 1; color: rgb(23 27 25 / 63%); font-size: 8px; font-weight: 800; letter-spacing: 1.1px; }
-.product-demo-tag, .product-featured-tag { position: absolute; top: 12px; right: 12px; z-index: 2; padding: 6px 8px; background: var(--lime); color: var(--ink); font-size: 8px; font-weight: 900; letter-spacing: .8px; }
-.product-featured-tag { top: auto; right: auto; bottom: 12px; left: 12px; background: var(--ink); color: var(--lime); }
+.placeholder-label { color: #5e665f; font-size: 9px; font-weight: 800; letter-spacing: 1.1px; text-align: center; }
+.product-featured-tag { position: absolute; right: 12px; bottom: 12px; left: 12px; z-index: 2; width: fit-content; padding: 6px 8px; background: var(--ink); color: var(--lime); font-size: 8px; font-weight: 900; letter-spacing: .8px; }
 .product-content { padding: 16px 16px 14px; }
 .product-meta { display: flex; justify-content: space-between; gap: 7px; color: #6f766f; font-size: 8px; font-weight: 800; letter-spacing: .8px; text-transform: uppercase; }
 .product-meta span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
@@ -225,7 +214,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .primary-nav.is-open { display: grid; }
   .primary-nav a { padding: 14px 4px; border-bottom: 1px solid #343a35; }
   .header-search { width: 100%; height: 42px; grid-column: 1 / -1; grid-row: 3; margin-top: 10px; }
-  .demo-banner { font-size: 10px; line-height: 1.4; }
   .hero-inner { width: 100%; min-height: auto; grid-template-columns: 1fr; gap: 30px; padding: 51px 22px 31px; }
   .hero h1 { font-size: clamp(70px, 19vw, 94px); }
   .hero-lede { max-width: 300px; margin-top: 19px; font-size: 14px; }

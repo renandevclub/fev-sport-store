@@ -1,19 +1,19 @@
 import type { Metadata } from "next";
 import { Storefront } from "@/components/storefront";
-import { contactEmail, demoMode, getCanonicalPath, getStoreProducts } from "@/lib/store-data";
+import { contactEmail, getCanonicalPath, getStoreProducts } from "@/lib/store-data";
 
 export const metadata: Metadata = {
-  title: "Equipamentos de futebol",
-  description: "Explore equipamentos e acessórios de futebol selecionados para jogadores amadores e partidas recreativas.",
+  title: "Itens para jogar futebol",
+  description: "Encontre bolas, chuteiras, luvas de goleiro, itens de treino e camisas de torcida identificados em uma seleção de produtos para futebol.",
   ...(getCanonicalPath("/futebol") ? { alternates: { canonical: getCanonicalPath("/futebol") } } : {}),
   openGraph: {
-    title: "Equipamentos de futebol | F&V Sports Store",
-    description: "Explore equipamentos e acessórios para sua próxima partida de futebol.",
+    title: "Itens para jogar futebol | F&V Sports Store",
+    description: "Bolas, chuteiras, luvas de goleiro, itens de treino e camisas de torcida para futebol.",
     locale: "pt_BR",
     type: "website",
   },
 };
 
 export default function FutebolPage() {
-  return <Storefront products={getStoreProducts()} demoMode={demoMode} contactEmail={contactEmail} initialSport="futebol" />;
+  return <Storefront products={getStoreProducts()} contactEmail={contactEmail} initialSport="futebol" />;
 }

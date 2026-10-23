@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { demoMode, getSiteUrl } from "@/lib/store-data";
+import { catalogIsEmpty, getSiteUrl } from "@/lib/store-data";
 import "./globals.css";
 
 const siteUrl = getSiteUrl();
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   },
   description: "Equipamentos e acessórios para futebol e vôlei. Uma seleção independente para acompanhar sua próxima partida.",
   applicationName: "F&V Sports Store",
-  ...(demoMode ? { robots: { index: false, follow: false } } : {}),
+  ...(catalogIsEmpty ? { robots: { index: false, follow: false } } : {}),
   openGraph: {
     type: "website",
     locale: "pt_BR",
