@@ -2,10 +2,25 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getProductAffiliateUrl } from "@/lib/affiliate";
 import { trackEvent } from "@/lib/analytics";
-import { filterProducts, getProductImageUrl, isComparablePrice, isProductInSport, type FootballType, type PriceOrder, type Product, type SportFilter } from "@/lib/products";
+import {
+  filterProducts,
+  getProductImages,
+  getProductImageUrl,
+  isComparablePrice,
+  isProductInSport,
+  type FootballType,
+  type PriceOrder,
+  type Product,
+  type SportFilter,
+} from "@/lib/products";
+import {
+  adminProductToStoreProduct,
+  type AdminCategory,
+  type AdminProduct,
+} from "@/lib/admin/catalog";
 
 type StorefrontProps = {
   products: readonly Product[];
@@ -26,6 +41,7 @@ const footballTypeOptions: { value: FootballType; label: string }[] = [
 ];
 
 export function Storefront({ products, contactEmail, initialSport = "todos" }: StorefrontProps) {
+  const [catalogProducts, setCatalogProducts] = useState<readonly Product[]>(products);
   const [queryInput, setQueryInput] = useState("");
   const [query, setQuery] = useState("");
   const [sport, setSport] = useState<SportFilter>(initialSport);
@@ -34,43 +50,86 @@ export function Storefront({ products, contactEmail, initialSport = "todos" }: S
   const [footballType, setFootballType] = useState<FootballType | "">("");
   const [priceOrder, setPriceOrder] = useState<PriceOrder>("relevance");
   const [menuOpen, setMenuOpen] = useState(false);
-  const [imageErrors, setImageErrors] = useState<string[]>([]);
+
+  useEffect(() => {
+    function loadCatalog() {
+      try {
+        const stored = localStorage.getItem("fv-admin.catalog.v1");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed && Array.isArray(parsed.products) && parsed.products.length > 0) {
+            const categories = (parsed.categories as AdminCategory[]) || [];
+            const mapped = (parsed.products as AdminProduct[]).map((p) => {
+              const base = products.find((orig) => orig.id === p.id);
+              return adminProductToStoreProduct(p, categories, base);
+            });
+            setCatalogProducts(mapped);
+            return;
+          }
+        }
+        setCatalogProducts(products);
+      } catch {
+        setCatalogProducts(products);
+      }
+    }
+
+    loadCatalog();
+
+    window.addEventListener("storage", loadCatalog);
+    window.addEventListener("catalogUpdated", loadCatalog);
+
+    return () => {
+      window.removeEventListener("storage", loadCatalog);
+      window.removeEventListener("catalogUpdated", loadCatalog);
+    };
+  }, [products]);
 
   const categories = useMemo(() => {
-    const available = products
+    const available = catalogProducts
       .filter((product) => isProductInSport(product, sport))
       .map((product) => product.subcategory);
     return [...new Set(available)].sort((left, right) => left.localeCompare(right, "pt-BR"));
-  }, [products, sport]);
+  }, [catalogProducts, sport]);
 
   const brands = useMemo(() => {
-    const available = products
+    const available = catalogProducts
       .filter((product) => isProductInSport(product, sport) && product.brand)
       .map((product) => product.brand as string);
     return [...new Set(available)].sort((left, right) => left.localeCompare(right, "pt-BR"));
-  }, [products, sport]);
+  }, [catalogProducts, sport]);
 
   const availableFootballTypes = useMemo(() => {
     const available = new Set(
-      products
+      catalogProducts
         .filter((product) => isProductInSport(product, sport))
         .flatMap((product) => product.footballTypes ?? []),
     );
     return footballTypeOptions.filter((option) => available.has(option.value));
-  }, [products, sport]);
+  }, [catalogProducts, sport]);
+
+  const hasPrices = catalogProducts.some((product) => isComparablePrice(product.price));
+  const effectivePriceOrder: PriceOrder =
+    !hasPrices && (priceOrder === "price-asc" || priceOrder === "price-desc")
+      ? "relevance"
+      : priceOrder;
 
   const visibleProducts = useMemo(
-    () => filterProducts(products, { query, sport, subcategory, brand, footballType, priceOrder }),
-    [products, query, sport, subcategory, brand, footballType, priceOrder],
+    () => filterProducts(catalogProducts, { query, sport, subcategory, brand, footballType, priceOrder: effectivePriceOrder }),
+    [catalogProducts, query, sport, subcategory, brand, footballType, effectivePriceOrder],
   );
 
   const featuredProducts = visibleProducts.filter((product) => product.featured);
-  const hasPrices = products.some((product) => isComparablePrice(product.price));
 
   useEffect(() => {
-    trackEvent("store_view", {
-      source: document.referrer ? new URL(document.referrer).hostname : "direct",
-    });
+    let source = "direct";
+    if (document.referrer) {
+      try {
+        source = new URL(document.referrer).hostname || "direct";
+      } catch {
+        source = "referral";
+      }
+    }
+    trackEvent("store_view", { source });
   }, []);
 
   function chooseSport(nextSport: SportFilter) {
@@ -98,9 +157,6 @@ export function Storefront({ products, contactEmail, initialSport = "todos" }: S
     setPriceOrder("relevance");
   }
 
-  function setImageFailed(productId: string) {
-    setImageErrors((current) => current.includes(productId) ? current : [...current, productId]);
-  }
 
   return (
     <>
@@ -221,19 +277,19 @@ export function Storefront({ products, contactEmail, initialSport = "todos" }: S
                   <span className="sr-only">Filtrar por modalidade de futebol</span>
                   <select value={footballType} onChange={(event) => setFootballType(event.target.value as FootballType | "")}>
                     <option value="">Campo, futsal e society</option>
-                    {availableFootballTypes.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                    {availableFootballTypes.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                   </select>
                 </label>
               )}
               <label>
                 <span className="sr-only">Ordenar produtos</span>
-                <select value={priceOrder} onChange={(event) => setPriceOrder(event.target.value as PriceOrder)}>
+                <select value={effectivePriceOrder} onChange={(event) => setPriceOrder(event.target.value as PriceOrder)}>
                   <option value="relevance">Ordem consultada (22/10/2026)</option>
                   {hasPrices && <><option value="price-asc">Menor preço</option><option value="price-desc">Maior preço</option></>}
                   <option value="name-asc">Ordem alfabética</option>
                 </select>
               </label>
-              {(query || sport !== "todos" || subcategory || brand || footballType || priceOrder !== "relevance") && (
+              {(query || sport !== "todos" || subcategory || brand || footballType || effectivePriceOrder !== "relevance") && (
                 <button className="clear-filters" type="button" onClick={clearFilters}>Limpar filtros <span aria-hidden="true">×</span></button>
               )}
             </div>
@@ -243,7 +299,7 @@ export function Storefront({ products, contactEmail, initialSport = "todos" }: S
             <p className="source-note">Consulta da referência em 22/10/2026: foram identificados itens nas posições 1–30 e 51–80. Esta seleção inclui os itens relacionados a vôlei; as posições 31–50 não foram retornadas pela consulta. Preços, avaliações e imagens não foram importados, e a ordem não representa um ranking atual.</p>
           )}
           {initialSport === "futebol" && (
-            <p className="source-note">Referência consultada em 22/10/2026: “Itens para jogar Futebol”, com posições 1–30 e 51–80 retornadas; as posições 31–50 não apareceram na consulta. O recorte de futebol contém {products.filter((product) => isProductInSport(product, "futebol")).length} itens identificados e pertinentes, sem camisetas esportivas genéricas ou artigos de outras modalidades. Nenhuma imagem oficial foi obtida com autorização; preços, avaliações e disponibilidade não foram importados. A ordem é a observada na consulta, não um ranking atual.</p>
+            <p className="source-note">Referência consultada em 22/10/2026: “Itens para jogar Futebol”, com posições 1–30 e 51–80 retornadas; as posições 31–50 não apareceram na consulta. O recorte de futebol contém {catalogProducts.filter((product) => isProductInSport(product, "futebol")).length} itens identificados e pertinentes, sem camisetas esportivas genéricas ou artigos de outras modalidades. Nenhuma imagem oficial foi obtida com autorização; preços, avaliações e disponibilidade não foram importados. A ordem é a observada na consulta, não um ranking atual.</p>
           )}
 
           {featuredProducts.length > 0 && !query && sport === "todos" && !subcategory && (
@@ -254,20 +310,26 @@ export function Storefront({ products, contactEmail, initialSport = "todos" }: S
             <div className="product-grid">
               {visibleProducts.map((product) => {
                 const affiliateUrl = getProductAffiliateUrl(product);
-                const imageFailed = imageErrors.includes(product.id);
-                const imageUrl = getProductImageUrl(product.imageUrl);
+                const platformLabel = product.merchant === "shopee"
+                  ? "na Shopee"
+                  : product.merchant === "mercado-livre"
+                  ? "no Mercado Livre"
+                  : "na Amazon";
+                const merchantName = product.merchant === "mercado-livre"
+                  ? "Mercado Livre"
+                  : product.merchant === "shopee"
+                  ? "Shopee"
+                  : product.merchant === "amazon"
+                  ? "Amazon"
+                  : product.merchant;
                 return (
                   <article className="product-card" key={product.id}>
-                    <div className={`product-image ${product.category}`}>
-                      {imageUrl && !imageFailed ? (
-                        <Image src={imageUrl} alt={product.imageAlt} fill sizes="(max-width: 640px) 90vw, (max-width: 1024px) 45vw, 25vw" onError={() => setImageFailed(product.id)} />
-                      ) : (
-                        <div className="image-placeholder" role="img" aria-label={product.imageUrl ? "Imagem indisponível" : "Imagem do produto não fornecida"}>
-                          <span className="placeholder-label">{product.imageUrl ? "IMAGEM INDISPONÍVEL" : "IMAGEM NÃO FORNECIDA"}</span>
-                        </div>
-                      )}
-                      {product.featured && <span className="product-featured-tag">DESTAQUE</span>}
-                    </div>
+                    <ProductImageCarousel
+                      key={product.id}
+                      product={product}
+                      category={product.category}
+                      featured={product.featured}
+                    />
                     <div className="product-content">
                       <div className="product-meta"><span>{product.brand || (sport !== "todos" ? sport.toLocaleUpperCase("pt-BR") : product.category === "volei" ? "VÔLEI" : "FUTEBOL")}</span><span>{product.subcategory}</span></div>
                       <h3>{product.name}</h3>
@@ -281,11 +343,11 @@ export function Storefront({ products, contactEmail, initialSport = "todos" }: S
                         </div>
                         {affiliateUrl ? (
                           <a className="offer-link" href={affiliateUrl} target="_blank" rel="sponsored noopener noreferrer" onClick={() => trackEvent("affiliate_click", { productId: product.id, category: product.category })}>
-                            Ver produto na Amazon <span aria-hidden="true">↗</span>
+                            Ver produto {platformLabel} <span aria-hidden="true">↗</span>
                           </a>
                         ) : <span className="offer-unavailable">{product.amazonUrl ? "Link afiliado pendente de configuração" : "Link não configurado"}</span>}
                       </div>
-                      {product.merchant && !product.amazonUrl && <p className="merchant-name">Vendido por {product.merchant}</p>}
+                      {merchantName && !product.amazonUrl && <p className="merchant-name">Vendido por {merchantName}</p>}
                     </div>
                   </article>
                 );
@@ -296,7 +358,7 @@ export function Storefront({ products, contactEmail, initialSport = "todos" }: S
               <span className="empty-mark" aria-hidden="true">F/V</span>
               <h3>{query ? "Nenhum item encontrado." : "Nenhum produto cadastrado."}</h3>
               <p>{query ? "Tente outro termo ou ajuste os filtros para explorar os itens disponíveis." : "Não há produtos ativos para estes filtros."}</p>
-              {(query || sport !== "todos" || subcategory || brand || footballType || priceOrder !== "relevance") && <button className="button button-dark" type="button" onClick={clearFilters}>Limpar filtros</button>}
+              {(query || sport !== "todos" || subcategory || brand || footballType || effectivePriceOrder !== "relevance") && <button className="button button-dark" type="button" onClick={clearFilters}>Limpar filtros</button>}
             </div>
           )}
 
@@ -336,5 +398,148 @@ export function Storefront({ products, contactEmail, initialSport = "todos" }: S
         <div className="footer-bottom"><span>© {new Date().getFullYear()} F&V Sports Store</span><span>Links externos podem gerar comissão. <Link href="/privacidade">Saiba mais</Link></span><span>BR / PT</span></div>
       </footer>
     </>
+  );
+}
+
+function ProductImageCarousel({
+  product,
+  category,
+  featured,
+}: {
+  product: Product;
+  category: string;
+  featured: boolean;
+}) {
+  const rawImages = useMemo(() => getProductImages(product), [product]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [failedIndices, setFailedIndices] = useState<number[]>([]);
+  const touchStartX = useRef<number | null>(null);
+
+  const images = useMemo(
+    () => rawImages.filter((img) => Boolean(getProductImageUrl(img))),
+    [rawImages],
+  );
+  const totalImages = images.length;
+  const safeIndex = currentIndex < totalImages ? currentIndex : 0;
+  const currentImageUrl = images[safeIndex] ? getProductImageUrl(images[safeIndex]) : null;
+  const isFailed = failedIndices.includes(safeIndex) || !currentImageUrl;
+
+  function prevSlide(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : totalImages - 1));
+  }
+
+  function nextSlide(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentIndex((prev) => (prev < totalImages - 1 ? prev + 1 : 0));
+  }
+
+  function goToSlide(index: number, e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentIndex(index);
+  }
+
+  function handleTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0].clientX;
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (touchStartX.current === null || totalImages <= 1) return;
+    const diff = touchStartX.current - e.changedTouches[0].clientX;
+    touchStartX.current = null;
+    if (diff > 35) {
+      setCurrentIndex((prev) => (prev < totalImages - 1 ? prev + 1 : 0));
+    } else if (diff < -35) {
+      setCurrentIndex((prev) => (prev > 0 ? prev - 1 : totalImages - 1));
+    }
+  }
+
+  function handleImageError(index: number) {
+    setFailedIndices((prev) => (prev.includes(index) ? prev : [...prev, index]));
+  }
+
+  return (
+    <div
+      className={`product-image ${category} ${totalImages > 1 ? "has-carousel" : ""}`}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
+      {currentImageUrl && !isFailed ? (
+        <Image
+          key={`${product.id}-${safeIndex}-${currentImageUrl}`}
+          src={currentImageUrl}
+          alt={
+            totalImages > 1
+              ? `${product.imageAlt} (foto ${safeIndex + 1} de ${totalImages})`
+              : product.imageAlt
+          }
+          fill
+          sizes="(max-width: 640px) 90vw, (max-width: 1024px) 45vw, 25vw"
+          className="carousel-slide-img"
+          onError={() => handleImageError(safeIndex)}
+          unoptimized
+        />
+      ) : (
+        <div
+          className="image-placeholder"
+          role="img"
+          aria-label={totalImages > 0 ? "Imagem indisponível" : "Imagem do produto não fornecida"}
+        >
+          <span className="placeholder-label">
+            {totalImages > 0 ? "IMAGEM INDISPONÍVEL" : "IMAGEM NÃO FORNECIDA"}
+          </span>
+        </div>
+      )}
+
+      {featured && <span className="product-featured-tag">DESTAQUE</span>}
+
+      {totalImages > 1 && (
+        <>
+          <span className="carousel-counter" aria-hidden="true">
+            {safeIndex + 1} / {totalImages}
+          </span>
+
+          <div className="carousel-nav-buttons">
+            <button
+              type="button"
+              className="carousel-arrow carousel-arrow-left"
+              aria-label="Ver imagem anterior do produto"
+              onClick={prevSlide}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              className="carousel-arrow carousel-arrow-right"
+              aria-label="Ver próxima imagem do produto"
+              onClick={nextSlide}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="carousel-dots" role="tablist" aria-label="Fotos do produto">
+            {images.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                role="tab"
+                aria-selected={i === safeIndex}
+                aria-label={`Ver foto ${i + 1} de ${totalImages}`}
+                className={`carousel-dot ${i === safeIndex ? "is-active" : ""}`}
+                onClick={(e) => goToSlide(i, e)}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   );
 }

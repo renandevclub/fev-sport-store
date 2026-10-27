@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -8,6 +9,7 @@ import {
   deleteCategory,
   deleteProduct,
   filterCatalog,
+  isValidImageUrl,
   marketplaces,
   upsertCategory,
   upsertProduct,
@@ -95,6 +97,9 @@ export function AdminPanel({ initialCatalog }: AdminPanelProps) {
       repository.current.save(next);
       setSnapshot(next);
       setNotice({ tone: "success", text: successMessage });
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("catalogUpdated"));
+      }
       return true;
     } catch {
       setNotice({ tone: "error", text: "Não foi possível salvar. O armazenamento local pode estar cheio." });
@@ -120,7 +125,7 @@ export function AdminPanel({ initialCatalog }: AdminPanelProps) {
     event.preventDefault();
     if (!draft) return;
     try {
-      const id = selectedId || crypto.randomUUID();
+      const id = selectedId || (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `prod-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`);
       const next = upsertProduct(snapshot, draft, id);
       if (!commit(next, selectedId ? "Produto atualizado." : "Produto cadastrado.")) return;
       setSelectedId(id);
@@ -245,7 +250,7 @@ export function AdminPanel({ initialCatalog }: AdminPanelProps) {
                   onCancel={() => { setDraft(null); setSelectedId(""); }}
                 />
               ) : selectedProduct ? (
-                <ProductDetails product={selectedProduct} categories={snapshot.categories} onEdit={() => openProduct(selectedProduct, "edit")} />
+                <ProductDetails key={selectedProduct.id} product={selectedProduct} categories={snapshot.categories} onEdit={() => openProduct(selectedProduct, "edit")} />
               ) : null}
             </aside>
           </section>
@@ -287,40 +292,283 @@ function ProductForm({ draft, categories, mode, onChange, onSubmit, onCancel }: 
       </div>
       <label>Categoria<select required value={draft.categoryId} onChange={(event) => onChange({ ...draft, categoryId: event.target.value })}><option value="">Selecione</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
       <label>Link de afiliado<input type="url" value={draft.affiliateUrl} onChange={(event) => onChange({ ...draft, affiliateUrl: event.target.value })} placeholder="https://" /></label>
-      <fieldset className="admin-image-fieldset"><legend>Imagens por URL</legend>
-        {draft.imageUrls.map((imageUrl, index) => (
-          <div className="admin-image-row" key={`${index}-${imageUrl}`}>
-            <input type="url" aria-label={`URL da imagem ${index + 1}`} value={imageUrl} onChange={(event) => onChange({ ...draft, imageUrls: draft.imageUrls.map((item, itemIndex) => itemIndex === index ? event.target.value : item) })} />
-            <button type="button" className="danger-text" onClick={() => onChange({ ...draft, imageUrls: draft.imageUrls.filter((_, itemIndex) => itemIndex !== index) })}>Remover</button>
-          </div>
-        ))}
-        <ImageUrlAdder onAdd={(imageUrl) => onChange({ ...draft, imageUrls: [...draft.imageUrls, imageUrl] })} />
-      </fieldset>
+      <ProductImageManager
+        imageUrls={draft.imageUrls}
+        onChange={(next) => onChange({ ...draft, imageUrls: next })}
+      />
       <div className="admin-form-actions"><button className="admin-primary-button" type="submit">{mode === "create" ? "Cadastrar produto" : "Salvar alterações"}</button><button className="admin-secondary-button" type="button" onClick={onCancel}>Cancelar</button></div>
     </form>
   );
 }
 
-function ImageUrlAdder({ onAdd }: { onAdd: (url: string) => void }) {
-  const [value, setValue] = useState("");
-  return <div className="admin-image-row"><input type="url" aria-label="Nova URL de imagem" value={value} onChange={(event) => setValue(event.target.value)} placeholder="https://" /><button className="admin-secondary-button" type="button" disabled={!value} onClick={() => { onAdd(value.trim()); setValue(""); }}>Adicionar imagem</button></div>;
+function formatSafeDate(dateString?: string): string {
+  if (!dateString) return "Não informado";
+  const date = new Date(dateString);
+  return Number.isNaN(date.getTime())
+    ? "Data indisponível"
+    : new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeStyle: "short" }).format(date);
+}
+
+function ProductImageManager({
+  imageUrls,
+  onChange,
+}: {
+  imageUrls: readonly string[];
+  onChange: (next: string[]) => void;
+}) {
+  const [newUrl, setNewUrl] = useState("");
+  const [addError, setAddError] = useState("");
+
+  function handleAdd() {
+    const trimmed = newUrl.trim();
+    if (!trimmed) return;
+
+    // Permite colar uma ou múltiplas URLs separadas por vírgula, espaço ou quebra de linha
+    const parts = trimmed
+      .split(/[\n,\s]+/)
+      .map((part) => part.trim())
+      .filter((part) => part.length > 0);
+
+    const invalidUrls = parts.filter((url) => !isValidImageUrl(url));
+    if (invalidUrls.length > 0) {
+      setAddError("Insira URLs HTTPS válidas para imagens (ex: https://m.media-amazon.com/...).");
+      return;
+    }
+
+    const amazonPageUrls = parts.filter(
+      (url) => url.includes("amazon.com.br/dp/") || url.includes("amazon.com.br/gp/"),
+    );
+    if (amazonPageUrls.length > 0) {
+      setAddError("Você colou o link da página do produto. No campo de fotos, use o link direto da imagem.");
+      return;
+    }
+
+    const uniqueNew = [...new Set(parts.filter((url) => !imageUrls.includes(url)))];
+    if (uniqueNew.length > 0) {
+      onChange([...imageUrls, ...uniqueNew]);
+      setAddError("");
+    } else {
+      setAddError("As imagens informadas já foram adicionadas.");
+      return;
+    }
+    setNewUrl("");
+  }
+
+  function handleMove(index: number, direction: -1 | 1) {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= imageUrls.length) return;
+    const next = [...imageUrls];
+    const [moved] = next.splice(index, 1);
+    next.splice(targetIndex, 0, moved);
+    onChange(next);
+  }
+
+  function handleSetPrimary(index: number) {
+    if (index === 0) return;
+    const next = [...imageUrls];
+    const [moved] = next.splice(index, 1);
+    next.unshift(moved);
+    onChange(next);
+  }
+
+  function handleRemove(index: number) {
+    onChange(imageUrls.filter((_, i) => i !== index));
+  }
+
+  function handleUrlChange(index: number, value: string) {
+    const next = [...imageUrls];
+    next[index] = value;
+    onChange(next);
+  }
+
+  return (
+    <fieldset className="admin-image-manager">
+      <legend>Fotos do produto ({imageUrls.length})</legend>
+      <p className="admin-field-hint">
+        Adicione várias fotos por ângulo ou detalhe. A <strong>primeira imagem</strong> será a capa na loja e as demais aparecerão no carrossel.
+      </p>
+
+      {imageUrls.length > 0 && (
+        <div className="admin-image-grid">
+          {imageUrls.map((url, index) => (
+            <div className={`admin-image-card ${index === 0 ? "is-primary" : ""}`} key={index}>
+              <div className="admin-image-thumb">
+                <Image
+                  src={url.trim() || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'><rect width='100%' height='100%' fill='%23e4e8dd'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='%23777' font-size='10'>Foto indisponível</text></svg>"}
+                  alt={`Foto ${index + 1}`}
+                  fill
+                  unoptimized
+                  sizes="72px"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src =
+                      "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'><rect width='100%' height='100%' fill='%23e4e8dd'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='%23777' font-size='10'>Foto indisponível</text></svg>";
+                  }}
+                />
+                <span className="admin-image-index">{index + 1}</span>
+                {index === 0 && <span className="admin-primary-tag">CAPA</span>}
+              </div>
+              <div className="admin-image-info">
+                <input
+                  type="text"
+                  inputMode="url"
+                  aria-label={`URL da imagem ${index + 1}`}
+                  value={url}
+                  onChange={(e) => handleUrlChange(index, e.target.value)}
+                  placeholder="https://"
+                />
+                <div className="admin-image-actions">
+                  {index > 0 && (
+                    <button
+                      type="button"
+                      className="admin-action-btn primary-btn"
+                      onClick={() => handleSetPrimary(index)}
+                      title="Definir esta imagem como capa principal"
+                      aria-label="Definir esta imagem como capa"
+                    >
+                      ★ Definir como capa
+                    </button>
+                  )}
+                  <div className="admin-reorder-group">
+                    <button
+                      type="button"
+                      className="admin-action-btn"
+                      disabled={index === 0}
+                      onClick={() => handleMove(index, -1)}
+                      title="Mover para cima"
+                      aria-label="Mover foto para cima"
+                    >
+                      ▲
+                    </button>
+                    <button
+                      type="button"
+                      className="admin-action-btn"
+                      disabled={index === imageUrls.length - 1}
+                      onClick={() => handleMove(index, 1)}
+                      title="Mover para baixo"
+                      aria-label="Mover foto para baixo"
+                    >
+                      ▼
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    className="admin-action-btn danger-text"
+                    onClick={() => handleRemove(index)}
+                    title="Remover esta foto"
+                    aria-label="Remover foto"
+                  >
+                    ✕ Remover
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="admin-image-add-box">
+        <label htmlFor="new-image-url">Adicionar nova imagem ou múltiplas URLs</label>
+        <div className="admin-image-add-row">
+          <input
+            id="new-image-url"
+            type="text"
+            inputMode="url"
+            placeholder="Cole o link HTTPS da imagem (ex: https://...)"
+            value={newUrl}
+            onChange={(e) => {
+              setNewUrl(e.target.value);
+              if (addError) setAddError("");
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleAdd();
+              }
+            }}
+          />
+          <button
+            type="button"
+            className="admin-secondary-button"
+            disabled={!newUrl.trim()}
+            onClick={handleAdd}
+          >
+            + Adicionar
+          </button>
+        </div>
+        {addError && <p className="admin-image-add-error" role="alert">{addError}</p>}
+      </div>
+    </fieldset>
+  );
 }
 
 function ProductDetails({ product, categories, onEdit }: { product: AdminProduct; categories: readonly AdminCategory[]; onEdit: () => void }) {
   const category = categories.find((item) => item.id === product.categoryId);
   const platform = marketplaces.find((item) => item.id === product.platformId);
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
+
+  const safePhotoIndex = selectedPhotoIndex < product.imageUrls.length ? selectedPhotoIndex : 0;
+  const currentPhoto = product.imageUrls[safePhotoIndex] ?? product.imageUrls[0];
+
   return (
     <div className="admin-product-details">
       <div className="admin-editor-heading"><p className="admin-kicker">DETALHES DO PRODUTO</p><h2>{product.name}</h2></div>
+
+      {product.imageUrls.length > 0 && (
+        <div className="admin-gallery-preview">
+          <div className="admin-gallery-main">
+            <Image
+              src={currentPhoto}
+              alt={product.name}
+              fill
+              unoptimized
+              sizes="(max-width: 768px) 100vw, 600px"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src =
+                  "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'><rect width='100%' height='100%' fill='%23e4e8dd'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='%23777' font-size='11'>Imagem indisponível</text></svg>";
+              }}
+            />
+            <span className="admin-gallery-counter">
+              Foto {safePhotoIndex + 1} de {product.imageUrls.length}
+            </span>
+          </div>
+          {product.imageUrls.length > 1 && (
+            <div className="admin-gallery-thumbs">
+              {product.imageUrls.map((url, i) => (
+                <button
+                  type="button"
+                  key={i}
+                  className={`admin-thumb-btn ${i === safePhotoIndex ? "is-active" : ""}`}
+                  onClick={() => setSelectedPhotoIndex(i)}
+                  aria-label={`Ver foto ${i + 1} do produto`}
+                >
+                  <Image
+                    src={url}
+                    alt={`Miniatura ${i + 1}`}
+                    fill
+                    unoptimized
+                    sizes="56px"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src =
+                        "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'><rect width='100%' height='100%' fill='%23e4e8dd'/></svg>";
+                    }}
+                  />
+                  {i === 0 && <span className="mini-badge">CAPA</span>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       <dl>
         <div><dt>Descrição</dt><dd>{product.description}</dd></div>
         <div><dt>Preço</dt><dd>{formatPrice(product.price)}</dd></div>
         <div><dt>Categoria</dt><dd>{category?.name ?? "Sem categoria"}</dd></div>
         <div><dt>Plataforma</dt><dd>{platform?.label ?? product.platformId}</dd></div>
         <div><dt>Link de afiliado</dt><dd>{product.affiliateUrl ? <a href={product.affiliateUrl} target="_blank" rel="noopener noreferrer">Abrir destino</a> : "Não informado"}</dd></div>
-        <div><dt>Imagens</dt><dd>{product.imageUrls.length ? product.imageUrls.map((imageUrl) => <a className="admin-image-link" href={imageUrl} target="_blank" rel="noopener noreferrer" key={imageUrl}>{imageUrl}</a>) : "Nenhuma imagem cadastrada"}</dd></div>
-        <div><dt>Criado</dt><dd>{new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(product.createdAt))}</dd></div>
-        <div><dt>Atualizado</dt><dd>{new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(product.updatedAt))}</dd></div>
+        <div><dt>Fotos cadastradas</dt><dd>{product.imageUrls.length ? `${product.imageUrls.length} foto(s)` : "Nenhuma foto cadastrada"}</dd></div>
+        <div><dt>Criado</dt><dd>{formatSafeDate(product.createdAt)}</dd></div>
+        <div><dt>Atualizado</dt><dd>{formatSafeDate(product.updatedAt)}</dd></div>
       </dl>
       <button className="admin-primary-button" type="button" onClick={onEdit}>Editar produto</button>
     </div>

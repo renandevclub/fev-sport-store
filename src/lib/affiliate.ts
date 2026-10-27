@@ -1,6 +1,15 @@
 import type { Product } from "./products.ts";
 
-export const allowedAffiliateHosts: readonly string[] = ["www.amazon.com.br"];
+export const allowedAffiliateHosts: readonly string[] = [
+  "www.amazon.com.br",
+  "amzn.to",
+  "shopee.com.br",
+  "www.shopee.com.br",
+  "s.shopee.com.br",
+  "mercadolivre.com.br",
+  "www.mercadolivre.com.br",
+  "produto.mercadolivre.com.br",
+];
 
 export function createAmazonAffiliateUrl(productUrl: string | null, associateTag: string | undefined): string | null {
   if (!productUrl || !associateTag || !/^[A-Za-z0-9][A-Za-z0-9-]{1,39}-20$/.test(associateTag)) return null;

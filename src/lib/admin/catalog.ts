@@ -86,13 +86,48 @@ export function createInitialCatalog(products: readonly Product[], now = new Dat
       description: product.description,
       price: product.price,
       currency: "BRL",
-      imageUrls: product.imageUrl ? [product.imageUrl] : [],
+      imageUrls: product.images && product.images.length > 0
+        ? [...product.images]
+        : product.imageUrl ? [product.imageUrl] : [],
       categoryId: categoryIdByName.get(product.subcategory) ?? "",
       platformId: "amazon",
       affiliateUrl: product.affiliateUrl ?? "",
       createdAt: now,
       updatedAt: now,
     })),
+  };
+}
+
+export function adminProductToStoreProduct(
+  adminProduct: AdminProduct,
+  categories: readonly AdminCategory[],
+  baseProduct?: Product,
+): Product {
+  const category = categories.find((item) => item.id === adminProduct.categoryId);
+  const subcategory = category?.name ?? baseProduct?.subcategory ?? "Geral";
+  const isVolei = subcategory.toLowerCase().includes("vôlei") || subcategory.toLowerCase().includes("volei");
+  const sport = baseProduct?.category ?? (isVolei ? "volei" : "futebol");
+  const mainImage = adminProduct.imageUrls[0] ?? baseProduct?.imageUrl ?? null;
+
+  return {
+    ...(baseProduct ?? {}),
+    id: adminProduct.id,
+    slug: baseProduct?.slug ?? adminProduct.name.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").replace(/[^a-z0-9]+/g, "-"),
+    name: adminProduct.name,
+    description: adminProduct.description,
+    brand: baseProduct?.brand ?? null,
+    category: sport,
+    subcategory,
+    price: adminProduct.price,
+    currency: "BRL",
+    images: adminProduct.imageUrls.length > 0 ? adminProduct.imageUrls : baseProduct?.images,
+    imageUrl: mainImage,
+    imageAlt: baseProduct?.imageAlt ?? `Imagem do produto ${adminProduct.name}`,
+    merchant: adminProduct.platformId || baseProduct?.merchant || "",
+    affiliateUrl: adminProduct.affiliateUrl || baseProduct?.affiliateUrl || null,
+    active: true,
+    featured: baseProduct?.featured ?? false,
+    priceUpdatedAt: adminProduct.updatedAt ? adminProduct.updatedAt.split("T")[0] : baseProduct?.priceUpdatedAt ?? null,
   };
 }
 
@@ -108,12 +143,20 @@ export function validateProductDraft(draft: ProductDraft, categories: readonly A
 }
 
 export function upsertProduct(snapshot: CatalogSnapshot, draft: ProductDraft, id: string, now = new Date().toISOString()): CatalogSnapshot {
-  const error = validateProductDraft(draft, snapshot.categories);
+  const cleanDraft: ProductDraft = {
+    ...draft,
+    name: draft.name.trim(),
+    description: draft.description.trim(),
+    affiliateUrl: draft.affiliateUrl.trim(),
+    imageUrls: draft.imageUrls.map((url) => url.trim()).filter((url) => url.length > 0),
+  };
+
+  const error = validateProductDraft(cleanDraft, snapshot.categories);
   if (error) throw new Error(error);
 
   const existing = snapshot.products.find((product) => product.id === id);
   const product: AdminProduct = {
-    ...draft,
+    ...cleanDraft,
     id,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,

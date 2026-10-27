@@ -27,6 +27,7 @@ export type Product = {
   price: number | null;
   currency: "BRL";
   imageUrl: string | null;
+  images?: readonly string[];
   imageAlt: string;
   merchant: string;
   affiliateUrl: string | null;
@@ -56,6 +57,7 @@ type FootballProductInput = {
   model?: string;
   attributes?: readonly string[];
   footballTypes?: readonly FootballType[];
+  images?: readonly string[];
 };
 
 const footballProducts = ([
@@ -98,7 +100,8 @@ function createFootballProduct(input: FootballProductInput): Product {
     subcategory: input.productType,
     price: null,
     currency: "BRL",
-    imageUrl: null,
+    images: input.images,
+    imageUrl: input.images?.[0] ?? null,
     imageAlt: `Imagem oficial pendente de autorização para ${input.name}`,
     imageSourceUrl: null,
     imageSourceType: "pending",
@@ -113,8 +116,8 @@ function createFootballProduct(input: FootballProductInput): Product {
 }
 
 export const publishedProducts: readonly Product[] = [
-  { id: "volei-mikasa-bv552c", slug: "bola-mikasa-bv552c-praia", name: "Bola Mikasa BV552C para vôlei de praia", brand: "Mikasa", model: "BV552C", attributes: ["praia", "bola"], sourceRank: 2, description: "Bola de vôlei de praia identificada na consulta da categoria.", category: "volei", subcategory: "Bolas", price: null, currency: "BRL", imageUrl: null, imageAlt: "Imagem não cadastrada para a bola Mikasa BV552C", merchant: "", affiliateUrl: null, amazonUrl: "https://www.amazon.com.br/dp/B0CLZHRQK8", active: true, featured: false, priceUpdatedAt: null },
-  { id: "volei-mikasa-v360w", slug: "bola-mikasa-v360w-quadra", name: "Bola Mikasa V360W para vôlei de quadra", brand: "Mikasa", model: "V360W", attributes: ["quadra", "bola"], sourceRank: 3, description: "Bola de quadra identificada na consulta da categoria.", category: "volei", subcategory: "Bolas", price: null, currency: "BRL", imageUrl: null, imageAlt: "Imagem não cadastrada para a bola Mikasa V360W", merchant: "", affiliateUrl: null, amazonUrl: "https://www.amazon.com.br/dp/B0CLTSRYQW", active: true, featured: false, priceUpdatedAt: null },
+  { id: "volei-mikasa-bv552c", slug: "bola-mikasa-bv552c-praia", name: "Bola Mikasa BV552C para vôlei de praia", brand: "Mikasa", model: "BV552C", attributes: ["praia", "bola"], sourceRank: 2, description: "Bola de vôlei de praia identificada na consulta da categoria.", category: "volei", subcategory: "Bolas", price: null, currency: "BRL", imageUrl: "https://m.media-amazon.com/images/I/71i1v43d2iL._AC_SL1500_.jpg", images: ["https://m.media-amazon.com/images/I/71i1v43d2iL._AC_SL1500_.jpg", "https://m.media-amazon.com/images/I/71n0BwI8+ZL._AC_SL1500_.jpg"], imageAlt: "Imagem da bola Mikasa BV552C", merchant: "", affiliateUrl: null, amazonUrl: "https://www.amazon.com.br/dp/B0CLZHRQK8", active: true, featured: false, priceUpdatedAt: null },
+  { id: "volei-mikasa-v360w", slug: "bola-mikasa-v360w-quadra", name: "Bola Mikasa V360W para vôlei de quadra", brand: "Mikasa", model: "V360W", attributes: ["quadra", "bola"], sourceRank: 3, description: "Bola de quadra identificada na consulta da categoria.", category: "volei", subcategory: "Bolas", price: null, currency: "BRL", imageUrl: "https://m.media-amazon.com/images/I/71wK8vB-y0L._AC_SL1500_.jpg", images: ["https://m.media-amazon.com/images/I/71wK8vB-y0L._AC_SL1500_.jpg", "https://m.media-amazon.com/images/I/71u9f3VfJ0L._AC_SL1500_.jpg", "https://m.media-amazon.com/images/I/715e7u11+kL._AC_SL1500_.jpg"], imageAlt: "Imagem da bola Mikasa V360W", merchant: "", affiliateUrl: null, amazonUrl: "https://www.amazon.com.br/dp/B0CLTSRYQW", active: true, featured: false, priceUpdatedAt: null },
   { id: "volei-vollo-bomba-hp001-2", slug: "bomba-vollo-hp001-2", name: "Bomba de inflar dupla ação Vollo", brand: "Vollo", model: "HP001-2", attributes: ["bomba", "inflar", "bola"], sourceRank: 4, sourceRankBySport: { volei: 4, futebol: 10 }, relatedSports: ["futebol"], description: "Bomba manual de dupla ação listada entre os itens da categoria.", category: "volei", subcategory: "Bombas para bolas", price: null, currency: "BRL", imageUrl: null, imageAlt: "Imagem não cadastrada para a bomba Vollo", merchant: "", affiliateUrl: null, amazonUrl: "https://www.amazon.com.br/dp/B09LR6DR89", active: true, featured: false, priceUpdatedAt: null },
   { id: "volei-tornozeleira-compressao", slug: "tornozeleira-compressao-esportiva", name: "Tornozeleira ortopédica de compressão ajustável", brand: null, model: null, attributes: ["proteção", "compressão", "esportes"], sourceRank: 5, description: "Tornozeleira esportiva listada na categoria; confira indicação e tamanho no destino.", category: "volei", subcategory: "Proteção esportiva", price: null, currency: "BRL", imageUrl: null, imageAlt: "Imagem não cadastrada para a tornozeleira esportiva", merchant: "", affiliateUrl: null, amazonUrl: "https://www.amazon.com.br/dp/B0D4FG4SGK", active: true, featured: false, priceUpdatedAt: null },
   { id: "volei-penalty-bomba-sac", slug: "bomba-penalty-sac", name: "Bomba manual Penalty SAC com agulha", brand: "Penalty", model: "SAC", attributes: ["bomba", "agulha", "bola"], sourceRank: 7, sourceRankBySport: { volei: 7, futebol: 11 }, relatedSports: ["futebol"], description: "Bomba manual para bolas identificada na consulta da categoria.", category: "volei", subcategory: "Bombas para bolas", price: null, currency: "BRL", imageUrl: null, imageAlt: "Imagem não cadastrada para a bomba Penalty SAC", merchant: "", affiliateUrl: null, amazonUrl: "https://www.amazon.com.br/dp/B07FVXX4RD", active: true, featured: false, priceUpdatedAt: null },
@@ -145,7 +148,25 @@ export const publishedProducts: readonly Product[] = [
   { id: "volei-bola-profissional", slug: "bola-volei-profissional-sintetica", name: "Bola de vôlei profissional em material sintético", brand: null, model: null, attributes: ["quadra", "bola"], sourceRank: 80, description: "Bola de vôlei identificada na segunda página consultada.", category: "volei", subcategory: "Bolas", price: null, currency: "BRL", imageUrl: null, imageAlt: "Imagem não cadastrada para a bola profissional de vôlei", merchant: "", affiliateUrl: null, amazonUrl: "https://www.amazon.com.br/dp/B0G1NBT7GS", active: true, featured: false, priceUpdatedAt: null },
   ...footballProducts,
 ];
-export const allowedProductImageHosts: readonly string[] = [];
+export const allowedProductImageHosts: readonly string[] = [
+  "images.unsplash.com",
+  "m.media-amazon.com",
+  "images-na.ssl-images-amazon.com",
+  "http2.mlstatic.com",
+  "cf.shopee.com.br",
+  "down-br.img.susercontent.com",
+  "qevnybymbdywiyoaubas.supabase.co",
+];
+
+export function getProductImages(product: Product): readonly string[] {
+  if (product.images && product.images.length > 0) {
+    return product.images.filter((url): url is string => Boolean(url && typeof url === "string" && url.trim().length > 0));
+  }
+  if (product.imageUrl) {
+    return [product.imageUrl];
+  }
+  return [];
+}
 
 export function filterProducts(
   products: readonly Product[],
